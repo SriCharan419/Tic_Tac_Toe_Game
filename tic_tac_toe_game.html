@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html>
+<head>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&family=DM+Sans:wght@300;400;500&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: #0a0a12;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-x: hidden;
+  }
+
+  .bg-orbs {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(80px);
+    opacity: 0.35;
+  }
+  .orb1 { width: 400px; height: 400px; background: #7c3aed; top: -100px; left: -100px; }
+  .orb2 { width: 350px; height: 350px; background: #0ea5e9; bottom: -80px; right: -80px; }
+  .orb3 { width: 250px; height: 250px; background: #f59e0b; top: 50%; left: 50%; transform: translate(-50%,-50%); opacity: 0.15; }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 460px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .title {
+    font-family: 'Syne', sans-serif;
+    font-size: 2.4rem;
+    font-weight: 800;
+    color: #fff;
+    letter-spacing: -0.03em;
+    text-align: center;
+  }
+  .title span {
+    background: linear-gradient(135deg, #a78bfa, #38bdf8);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .scoreboard {
+    display: flex;
+    gap: 1rem;
+    width: 100%;
+  }
+  .score-card {
+    flex: 1;
+    padding: 1rem 1.25rem;
+    border-radius: 16px;
+    border: 1px solid rgba(255,255,255,0.08);
+    background: rgba(255,255,255,0.04);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    transition: border-color 0.3s, background 0.3s;
+    position: relative;
+    overflow: hidden;
+  }
+  .score-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+  .score-card.x-card::before { background: linear-gradient(135deg, rgba(167,139,250,0.15), transparent); }
+  .score-card.o-card::before { background: linear-gradient(135deg, rgba(56,189,248,0.15), transparent); }
+  .score-card.active { border-color: rgba(255,255,255,0.2); }
+  .score-card.active::before { opacity: 1; }
+  .score-label {
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255,255,255,0.4);
+  }
+  .score-player {
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+  }
+  .score-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 2rem;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .score-num.x { color: #a78bfa; }
+  .score-num.o { color: #38bdf8; }
+  .score-mid {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0.5rem;
+  }
+  .score-vs {
+    font-family: 'Syne', sans-serif;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.2);
+    letter-spacing: 0.1em;
+  }
+  .score-draws {
+    font-size: 10px;
+    color: rgba(255,255,255,0.3);
+    text-align: center;
+  }
+  .score-draws span {
+    display: block;
+    font-family: 'Syne', sans-serif;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: rgba(255,255,255,0.25);
+  }
+
+  .status-bar {
+    padding: 0.6rem 1.5rem;
+    border-radius: 100px;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: rgba(255,255,255,0.75);
+    text-align: center;
+    transition: all 0.4s;
+    min-width: 240px;
+  }
+  .status-bar .player-x { color: #a78bfa; font-weight: 700; }
+  .status-bar .player-o { color: #38bdf8; font-weight: 700; }
+  .status-bar.win {
+    background: rgba(255,255,255,0.1);
+    border-color: rgba(255,255,255,0.2);
+    animation: statusPulse 1s ease infinite;
+  }
+  @keyframes statusPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.03); }
+  }
+
+  .board-container {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1;
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 12px;
+    width: 100%;
+    height: 100%;
+  }
+
+  .cell {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: background 0.2s, border-color 0.2s, transform 0.15s;
+    aspect-ratio: 1;
+  }
+  .cell:hover:not(.taken) {
+    background: rgba(255,255,255,0.08);
+    border-color: rgba(255,255,255,0.15);
+    transform: scale(1.03);
+  }
+  .cell.taken { cursor: default; }
+  .cell.win-cell { animation: winGlow 0.6s ease forwards; }
+
+  @keyframes winGlow {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); }
+    100% { transform: scale(1.05); }
+  }
+  .cell.win-cell-x {
+    background: rgba(167,139,250,0.2);
+    border-color: rgba(167,139,250,0.5);
+    box-shadow: 0 0 24px rgba(167,139,250,0.3);
+  }
+  .cell.win-cell-o {
+    background: rgba(56,189,248,0.2);
+    border-color: rgba(56,189,248,0.5);
+    box-shadow: 0 0 24px rgba(56,189,248,0.3);
+  }
+
+  .cell-inner {
+    width: 60%;
+    height: 60%;
+    position: relative;
+  }
+
+  /* X mark */
+  .mark-x {
+    animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  }
+  .mark-x svg { width: 100%; height: 100%; }
+  .mark-x line {
+    stroke: #a78bfa;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 60;
+    stroke-dashoffset: 60;
+    animation: drawLine 0.25s ease forwards;
+  }
+  .mark-x line:nth-child(2) { animation-delay: 0.1s; }
+
+  /* O mark */
+  .mark-o { animation: popIn 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards; }
+  .mark-o svg { width: 100%; height: 100%; }
+  .mark-o circle {
+    fill: none;
+    stroke: #38bdf8;
+    stroke-width: 8;
+    stroke-linecap: round;
+    stroke-dasharray: 200;
+    stroke-dashoffset: 200;
+    animation: drawCircle 0.35s ease forwards;
+  }
+
+  @keyframes popIn {
+    from { transform: scale(0.4) rotate(-10deg); opacity: 0; }
+    to { transform: scale(1) rotate(0deg); opacity: 1; }
+  }
+  @keyframes drawLine {
+    to { stroke-dashoffset: 0; }
+  }
+  @keyframes drawCircle {
+    to { stroke-dashoffset: 0; }
+  }
+
+  .win-line {
+    position: absolute;
+    pointer-events: none;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    z-index: 10;
+  }
+  .win-line svg {
+    width: 100%; height: 100%;
+    position: absolute; inset: 0;
+    overflow: visible;
+  }
+  .win-stroke {
+    stroke-width: 5;
+    stroke-linecap: round;
+    stroke-dasharray: 1000;
+    stroke-dashoffset: 1000;
+    animation: drawWin 0.5s ease forwards 0.2s;
+    fill: none;
+  }
+  .win-stroke-x { stroke: rgba(167,139,250,0.9); filter: drop-shadow(0 0 8px #a78bfa); }
+  .win-stroke-o { stroke: rgba(56,189,248,0.9); filter: drop-shadow(0 0 8px #38bdf8); }
+  @keyframes drawWin {
+    to { stroke-dashoffset: 0; }
+  }
+
+  .controls {
+    display: flex;
+    gap: 0.75rem;
+  }
+  .btn {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 0.875rem;
+    font-weight: 500;
+    padding: 0.65rem 1.5rem;
+    border-radius: 100px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(255,255,255,0.06);
+    color: rgba(255,255,255,0.7);
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.01em;
+  }
+  .btn:hover { background: rgba(255,255,255,0.12); color: #fff; transform: translateY(-1px); }
+  .btn:active { transform: translateY(0) scale(0.97); }
+  .btn.primary {
+    background: linear-gradient(135deg, #7c3aed, #0ea5e9);
+    border-color: transparent;
+    color: #fff;
+  }
+  .btn.primary:hover { opacity: 0.9; }
+
+  .cell-hover-x .cell:not(.taken):hover::after {
+    content: '×';
+    position: absolute;
+    font-family: 'Syne', sans-serif;
+    font-size: 3rem;
+    color: rgba(167,139,250,0.25);
+    font-weight: 800;
+  }
+  .cell-hover-o .cell:not(.taken):hover::after {
+    content: '○';
+    position: absolute;
+    font-size: 2.5rem;
+    color: rgba(56,189,248,0.25);
+    font-weight: 400;
+  }
+
+  .confetti-container {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 100;
+    overflow: hidden;
+  }
+  .confetti-piece {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    top: -20px;
+    animation: confettiFall linear forwards;
+  }
+  @keyframes confettiFall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(720deg); opacity: 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="bg-orbs">
+  <div class="orb orb1"></div>
+  <div class="orb orb2"></div>
+  <div class="orb orb3"></div>
+</div>
+
+<div class="confetti-container" id="confetti"></div>
+
+<div class="wrapper">
+  <div class="title">Tic <span>Tac</span> Toe</div>
+
+  <div class="scoreboard">
+    <div class="score-card x-card active" id="card-x">
+      <div class="score-label">Player 1</div>
+      <div class="score-player" style="color:#a78bfa;">✕ Crosses</div>
+      <div class="score-num x" id="score-x">0</div>
+    </div>
+    <div class="score-mid">
+      <div class="score-vs">VS</div>
+      <div class="score-draws"><span id="score-d">0</span>draws</div>
+    </div>
+    <div class="score-card o-card" id="card-o">
+      <div class="score-label">Player 2</div>
+      <div class="score-player" style="color:#38bdf8;">◯ Noughts</div>
+      <div class="score-num o" id="score-o">0</div>
+    </div>
+  </div>
+
+  <div class="status-bar" id="status">
+    <span class="player-x">Player X</span>'s turn
+  </div>
+
+  <div class="board-container">
+    <div class="board cell-hover-x" id="board">
+      <div class="cell" data-i="0"></div>
+      <div class="cell" data-i="1"></div>
+      <div class="cell" data-i="2"></div>
+      <div class="cell" data-i="3"></div>
+      <div class="cell" data-i="4"></div>
+      <div class="cell" data-i="5"></div>
+      <div class="cell" data-i="6"></div>
+      <div class="cell" data-i="7"></div>
+      <div class="cell" data-i="8"></div>
+    </div>
+    <div class="win-line" id="win-line"></div>
+  </div>
+
+  <div class="controls">
+    <button class="btn" onclick="resetGame()">New Game</button>
+    <button class="btn primary" onclick="resetAll()">Reset Scores</button>
+  </div>
+</div>
+
+<script>
+  const WINS = [
+    [0,1,2],[3,4,5],[6,7,8],
+    [0,3,6],[1,4,7],[2,5,8],
+    [0,4,8],[2,4,6]
+  ];
+
+  let board = Array(9).fill(null);
+  let current = 'X';
+  let gameOver = false;
+  let scores = {X:0, O:0, D:0};
+
+  const cells = document.querySelectorAll('.cell');
+  const status = document.getElementById('status');
+  const boardEl = document.getElementById('board');
+  const winLineEl = document.getElementById('win-line');
+
+  cells.forEach(cell => cell.addEventListener('click', () => handleClick(+cell.dataset.i)));
+
+  function handleClick(i) {
+    if (gameOver || board[i]) return;
+    board[i] = current;
+    renderMark(cells[i], current);
+    cells[i].classList.add('taken');
+
+    const win = checkWin();
+    if (win) {
+      gameOver = true;
+      highlightWin(win, current);
+      drawWinLine(win, current);
+      status.innerHTML = `<span class="player-${current.toLowerCase()}">Player ${current}</span> wins! 🎉`;
+      status.classList.add('win');
+      scores[current]++;
+      updateScores();
+      setTimeout(() => spawnConfetti(current), 300);
+    } else if (board.every(Boolean)) {
+      gameOver = true;
+      status.innerHTML = `It's a draw!`;
+      status.classList.add('win');
+      scores.D++;
+      updateScores();
+    } else {
+      current = current === 'X' ? 'O' : 'X';
+      updateStatus();
+      updateActiveCard();
+    }
+  }
+
+  function renderMark(cell, player) {
+    const inner = document.createElement('div');
+    inner.className = 'cell-inner';
+    if (player === 'X') {
+      inner.innerHTML = `<div class="mark-x"><svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><line x1="8" y1="8" x2="52" y2="52"/><line x1="52" y1="8" x2="8" y2="52"/></svg></div>`;
+    } else {
+      inner.innerHTML = `<div class="mark-o"><svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg"><circle cx="30" cy="30" r="20"/></svg></div>`;
+    }
+    cell.appendChild(inner);
+  }
+
+  function checkWin() {
+    for (const combo of WINS) {
+      const [a,b,c] = combo;
+      if (board[a] && board[a] === board[b] && board[a] === board[c]) return combo;
+    }
+    return null;
+  }
+
+  function highlightWin(combo, player) {
+    combo.forEach(i => {
+      cells[i].classList.add('win-cell', `win-cell-${player.toLowerCase()}`);
+    });
+  }
+
+  function drawWinLine(combo, player) {
+    const size = cells[0].closest('.board-container').offsetWidth;
+    const gap = 12;
+    const cellSize = (size - 2*gap) / 3;
+
+    function center(i) {
+      const row = Math.floor(i/3), col = i%3;
+      const x = col * (cellSize + gap) + cellSize/2;
+      const y = row * (cellSize + gap) + cellSize/2;
+      return {x, y};
+    }
+
+    const [a,,c] = combo;
+    const start = center(a), end = center(c);
+    const cls = player === 'X' ? 'win-stroke-x' : 'win-stroke-o';
+
+    winLineEl.innerHTML = `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+      <line class="win-stroke ${cls}" x1="${start.x}" y1="${start.y}" x2="${end.x}" y2="${end.y}"/>
+    </svg>`;
+  }
+
+  function updateStatus() {
+    const p = current === 'X'
+      ? '<span class="player-x">Player X</span>'
+      : '<span class="player-o">Player O</span>';
+    status.innerHTML = `${p}'s turn`;
+    status.classList.remove('win');
+    boardEl.className = `board cell-hover-${current.toLowerCase()}`;
+  }
+
+  function updateActiveCard() {
+    document.getElementById('card-x').classList.toggle('active', current === 'X');
+    document.getElementById('card-o').classList.toggle('active', current === 'O');
+  }
+
+  function updateScores() {
+    document.getElementById('score-x').textContent = scores.X;
+    document.getElementById('score-o').textContent = scores.O;
+    document.getElementById('score-d').textContent = scores.D;
+  }
+
+  function resetGame() {
+    board = Array(9).fill(null);
+    current = 'X';
+    gameOver = false;
+    winLineEl.innerHTML = '';
+    cells.forEach(cell => {
+      cell.innerHTML = '';
+      cell.className = 'cell';
+    });
+    boardEl.className = 'board cell-hover-x';
+    updateStatus();
+    updateActiveCard();
+    document.getElementById('card-x').classList.add('active');
+    document.getElementById('card-o').classList.remove('active');
+  }
+
+  function resetAll() {
+    scores = {X:0, O:0, D:0};
+    updateScores();
+    resetGame();
+  }
+
+  const confettiColors = ['#a78bfa','#38bdf8','#f59e0b','#34d399','#f472b6','#fff'];
+
+  function spawnConfetti(player) {
+    const container = document.getElementById('confetti');
+    const color = player === 'X' ? '#a78bfa' : '#38bdf8';
+    for (let i = 0; i < 60; i++) {
+      const p = document.createElement('div');
+      p.className = 'confetti-piece';
+      p.style.left = Math.random()*100 + 'vw';
+      p.style.background = confettiColors[Math.floor(Math.random()*confettiColors.length)];
+      p.style.animationDuration = (0.8 + Math.random()*1.5) + 's';
+      p.style.animationDelay = Math.random()*0.5 + 's';
+      p.style.width = p.style.height = (6 + Math.random()*6) + 'px';
+      p.style.borderRadius = Math.random() > 0.5 ? '50%' : '2px';
+      container.appendChild(p);
+      setTimeout(() => p.remove(), 2500);
+    }
+  }
+</script>
+</body>
+</html>
